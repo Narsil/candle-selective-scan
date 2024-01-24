@@ -1,0 +1,52 @@
+use core::ffi::{c_int, c_void};
+
+extern "C" {
+    pub(crate) fn  selective_scan_fwd_cuda_ffi(
+        batch: c_int,
+        dim: c_int,
+        seqlen: c_int,
+        dstate: c_int,
+        n_groups: c_int,
+        n_chunks: c_int,
+        dim_ngroups_ratio: c_int,
+        is_variable_B: bool,
+        is_variable_C: bool,
+        delta_softplus: bool,
+        A_d_stride: u32,
+        A_dstate_stride: u32,
+        B_batch_stride: u32,
+        B_d_stride: u32,
+        B_dstate_stride: u32,
+        B_group_stride: u32,
+        C_batch_stride: u32,
+        C_d_stride: u32,
+        C_dstate_stride: u32,
+        C_group_stride: u32,
+        u_batch_stride: u32,
+        u_d_stride: u32,
+        delta_batch_stride: u32,
+        delta_d_stride: u32,
+        z_batch_stride: u32,
+        z_d_stride: u32,
+        out_batch_stride: u32,
+        out_d_stride: u32,
+        out_z_batch_stride: u32,
+        out_z_d_stride: u32,
+
+        // Common data pointers.
+        A_ptr: *const c_void,
+        B_ptr: *const c_void,
+        C_ptr: *const c_void,
+        D_ptr: *const c_void,
+        u_ptr: *const c_void,
+        delta_ptr: *const c_void,
+        delta_bias_ptr: *const c_void,
+        out_ptr: *const c_void,
+        x_ptr: *const c_void,
+        z_ptr: *const c_void,
+        out_z_ptr: *const c_void,
+        input_dtype: u32,
+        weight_dtype: u32,
+        stream: *const c_void
+    );
+}

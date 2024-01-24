@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <c10/util/BFloat16.h>
-#include <c10/util/Half.h>
-#include <c10/cuda/CUDAException.h>  // For C10_CUDA_CHECK and C10_CUDA_KERNEL_LAUNCH_CHECK
+// #include <c10/util/BFloat16.h>
+// #include <c10/util/Half.h>
+// #include <c10/cuda/CUDAException.h>  // For C10_CUDA_CHECK and C10_CUDA_KERNEL_LAUNCH_CHECK
 
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_store.cuh>
@@ -33,7 +33,8 @@ struct Selective_Scan_fwd_kernel_traits {
     static constexpr int kNElts = kNBytes == 4 ? 4 : std::min(8, kNItems);
     static_assert(kNItems % kNElts == 0);
     static constexpr int kNLoads = kNItems / kNElts;
-    static constexpr bool kIsComplex = std::is_same_v<weight_t, complex_t>;
+    // static constexpr bool kIsComplex = std::is_same_v<weight_t, complex_t>;
+    static constexpr bool kIsComplex = false;
     static constexpr bool kIsEvenLen = kIsEvenLen_;
     static constexpr bool kIsVariableB = kIsVariableB_;
     static constexpr bool kIsVariableC = kIsVariableC_;
@@ -212,7 +213,7 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
                 scan_t thread_data[kNItems];
                 #pragma unroll
                 for (int i = 0; i < kNItems; ++i) {
-                    if constexpr (!kIsComplex) {
+                    // if constexpr (!kIsComplex) {
                         thread_data[i] = make_float2(exp2f(delta_vals[r][i] * A_val[r]),
                                                      !kIsVariableB ? delta_u_vals[r][i] : B_vals[i] * delta_u_vals[r][i]);
                         if constexpr (!Ktraits::kIsEvenLen) {  // So that the last state is correct
@@ -220,17 +221,17 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
                                 thread_data[i] = make_float2(1.f, 0.f);
                             }
                         }
-                    } else {
-                        // Pytorch's implementation of complex exp (which calls thrust) is very slow
-                        complex_t delta_a_exp = cexp2f(delta_vals[r][i] * A_val[r]);
-                        weight_t B_delta_u_val = !kIsVariableB ? delta_u_vals[r][i] : B_vals[i] * delta_u_vals[r][i];
-                        thread_data[i] = make_float4(delta_a_exp.real_, delta_a_exp.imag_, B_delta_u_val.real_, B_delta_u_val.imag_);
-                        if constexpr (!Ktraits::kIsEvenLen) {  // So that the last state is correct
-                            if (threadIdx.x * kNItems + i >= params.seqlen - chunk * kChunkSize) {
-                                thread_data[i] = make_float4(1.f, 0.f, 0.f, 0.f);
-                            }
-                        }
-                    }
+                    // } else {
+                    //     // Pytorch's implementation of complex exp (which calls thrust) is very slow
+                    //     complex_t delta_a_exp = cexp2f(delta_vals[r][i] * A_val[r]);
+                    //     weight_t B_delta_u_val = !kIsVariableB ? delta_u_vals[r][i] : B_vals[i] * delta_u_vals[r][i];
+                    //     thread_data[i] = make_float4(delta_a_exp.real_, delta_a_exp.imag_, B_delta_u_val.real_, B_delta_u_val.imag_);
+                    //     if constexpr (!Ktraits::kIsEvenLen) {  // So that the last state is correct
+                    //         if (threadIdx.x * kNItems + i >= params.seqlen - chunk * kChunkSize) {
+                    //             thread_data[i] = make_float4(1.f, 0.f, 0.f, 0.f);
+                    //         }
+                    //     }
+                    // }
                 }
                 // Initialize running total
                 scan_t running_prefix;
@@ -257,11 +258,11 @@ void selective_scan_fwd_kernel(SSMParamsBase params) {
                     const weight_t C_val = !kIsVariableC
                         ? BC_val[r]
                         : (!kIsVariableB ? BC_val[r] * C_vals[i] : C_vals[i]);
-                    if constexpr (!kIsComplex) {
+                    // if constexpr (!kIsComplex) {
                         out_vals[r][i] += thread_data[i].y * C_val;
-                    } else {
-                        out_vals[r][i] += (complex_t(thread_data[i].z, thread_data[i].w) * C_val).real_ * 2;
-                    }
+                    // } else {
+                    //     out_vals[r][i] += (complex_t(thread_data[i].z, thread_data[i].w) * C_val).real_ * 2;
+                    // }
                 }
             }
         }
@@ -318,11 +319,13 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
                     dim3 grid(params.batch, params.dim / kNRows);
                     auto kernel = &selective_scan_fwd_kernel<Ktraits>;
                     if (kSmemSize >= 48 * 1024) {
-                        C10_CUDA_CHECK(cudaFuncSetAttribute(
-                            kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize));
+                        // C10_CUDA_CHECK(cudaFuncSetAttribute(
+                        //     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize));
+                        cudaFuncSetAttribute(
+                            kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize);
                     }
                     kernel<<<grid, Ktraits::kNThreads, kSmemSize, stream>>>(params);
-                    C10_CUDA_KERNEL_LAUNCH_CHECK();
+                    // C10_CUDA_KERNEL_LAUNCH_CHECK();
                 });
             });
         });

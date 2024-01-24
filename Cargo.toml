@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+candle = { version = "0.3.2", features = ["cuda"], package="candle-core" }
 
 [build-dependencies]
 bindgen_cuda = "0.1.1"
