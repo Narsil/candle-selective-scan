@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 candle = { version = "0.3.2", features = ["cuda"], package="candle-core" }
+half = "2.3.1"
 
 [build-dependencies]
 bindgen_cuda = "0.1.1"
