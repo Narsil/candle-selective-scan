@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]    
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 candle = { version = "0.3.2", features = ["cuda"], package="candle-core" }
 half = "2.3.1"

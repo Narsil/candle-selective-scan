@@ -1,34 +1,38 @@
-
 #include "selective_scan_fwd_kernel.cuh"
-using index_t = uint32_t;
-void selective_scan_fwd_cuda_ffi(
-    int batch, int dim, int seqlen, int dstate, int n_groups, int n_chunks,
+
+extern "C" void selective_scan_fwd_cuda_ffi(
+    int batch,
+    int dim,
+    int seqlen,
+    int dstate,
+    int n_groups,
+    int n_chunks,
     int dim_ngroups_ratio,
     bool is_variable_B,
     bool is_variable_C,
 
     bool delta_softplus,
 
-    index_t A_d_stride,
-    index_t A_dstate_stride,
-    index_t B_batch_stride,
-    index_t B_d_stride,
-    index_t B_dstate_stride,
-    index_t B_group_stride,
-    index_t C_batch_stride,
-    index_t C_d_stride,
-    index_t C_dstate_stride,
-    index_t C_group_stride,
-    index_t u_batch_stride,
-    index_t u_d_stride,
-    index_t delta_batch_stride,
-    index_t delta_d_stride,
-    index_t z_batch_stride,
-    index_t z_d_stride,
-    index_t out_batch_stride,
-    index_t out_d_stride,
-    index_t out_z_batch_stride,
-    index_t out_z_d_stride,
+    uint32_t A_d_stride,
+    uint32_t A_dstate_stride,
+    uint32_t B_batch_stride,
+    uint32_t B_d_stride,
+    uint32_t B_dstate_stride,
+    uint32_t B_group_stride,
+    uint32_t C_batch_stride,
+    uint32_t C_d_stride,
+    uint32_t C_dstate_stride,
+    uint32_t C_group_stride,
+    uint32_t u_batch_stride,
+    uint32_t u_d_stride,
+    uint32_t delta_batch_stride,
+    uint32_t delta_d_stride,
+    uint32_t z_batch_stride,
+    uint32_t z_d_stride,
+    uint32_t out_batch_stride,
+    uint32_t out_d_stride,
+    uint32_t out_z_batch_stride,
+    uint32_t out_z_d_stride,
 
     // Common data pointers.
     void *__restrict__ A_ptr,
@@ -77,10 +81,11 @@ void selective_scan_fwd_cuda_ffi(
             .out_z_batch_stride = out_z_batch_stride,
             .out_z_d_stride = out_z_d_stride,
         };
+        std::cerr<<"Invalid dtypes"<<std::endl;
         if (input_dtype == 2 && weight_dtype == 2){
             selective_scan_fwd_cuda<float, float>(params, stream);
         }else{
-            std::cerr<<"Invalid dtypes";
+            std::cerr<<"Invalid dtypes"<<std::endl;
             exit(1);
         }
 }
