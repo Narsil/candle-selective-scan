@@ -308,6 +308,8 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
     // Only kNRows == 1 is tested for now, which ofc doesn't differ from previously when we had each block
     // processing 1 row.
     constexpr int kNRows = 1;
+
+    printf("Launch start");
     BOOL_SWITCH(params.seqlen % (kNThreads * kNItems) == 0, kIsEvenLen, [&] {
         BOOL_SWITCH(params.is_variable_B, kIsVariableB, [&] {
             BOOL_SWITCH(params.is_variable_C, kIsVariableC, [&] {
@@ -318,13 +320,16 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
                     // printf("smem_size = %d\n", kSmemSize);
                     dim3 grid(params.batch, params.dim / kNRows);
                     auto kernel = &selective_scan_fwd_kernel<Ktraits>;
+                    printf("k mem size %i", kSmemSize);
                     if (kSmemSize >= 48 * 1024) {
                         // C10_CUDA_CHECK(cudaFuncSetAttribute(
                         //     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize));
                         cudaFuncSetAttribute(
                             kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize);
                     }
+                    printf("Kernel launch");
                     kernel<<<grid, Ktraits::kNThreads, kSmemSize, stream>>>(params);
+                    printf("Kernel launched");
                     // C10_CUDA_KERNEL_LAUNCH_CHECK();
                 });
             });
@@ -334,6 +339,8 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
 
 template<typename input_t, typename weight_t>
 void selective_scan_fwd_cuda(SSMParamsBase &params, cudaStream_t stream) {
+    printf("Seqlen2 %i", params.seqlen);
+    printf("Launching large");
     if (params.seqlen <= 128) {
         selective_scan_fwd_launch<32, 4, input_t, weight_t>(params, stream);
     } else if (params.seqlen <= 256) {
@@ -343,6 +350,8 @@ void selective_scan_fwd_cuda(SSMParamsBase &params, cudaStream_t stream) {
     } else if (params.seqlen <= 1024) {
         selective_scan_fwd_launch<64, 16, input_t, weight_t>(params, stream);
     } else {
+        printf("Launching large");
         selective_scan_fwd_launch<128, 16, input_t, weight_t>(params, stream);
     }
 }
+

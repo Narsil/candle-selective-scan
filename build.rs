@@ -16,6 +16,9 @@ fn main() {
         println!(
             "cargo:rerun-if-changed={}", path.display()
         );
+        println!(
+            "cargo:warning={}", path.display()
+        );
     }
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
