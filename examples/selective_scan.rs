@@ -1,5 +1,5 @@
     use candle_selective_scan::*;
-    use candle::{IndexOp, Device, DType, Result, Tensor};
+    use candle::{IndexOp, Device, Result, Tensor};
 fn selective_scan(
     u: &Tensor,
     delta: &Tensor,
@@ -39,8 +39,11 @@ fn main(){
         let c = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, x), &device).unwrap();
         let d = Tensor::randn(0.0f32, 1.0f32, (hidden_dim, ), &device).unwrap();
 
-        let z = selective_scan(&u, &delta, &a, &b, &c, &d).unwrap();
-        let z2 = Tensor::zeros((batch, seqlen, hidden_dim), DType::F32, &device).unwrap();
-        apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), Some(&z), None, false).unwrap();
-        assert_eq!(z.dims(), &[batch, seqlen, hidden_dim]);
+        let out = selective_scan(&u, &delta, &a, &b, &c, &d).unwrap();
+        println!("{out}");
+        let (out2, _) = apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), None, None, false).unwrap();
+        // assert_eq!(out.dims(), &[batch, seqlen, hidden_dim]);
+        // assert_eq!(out2.dims(), &[batch, seqlen, hidden_dim]);
+        println!("{out2}");
+        std::process::exit(0);
 }

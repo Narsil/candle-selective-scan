@@ -319,17 +319,18 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
                     constexpr int kSmemSize = Ktraits::kSmemSize + kNRows * MAX_DSTATE * sizeof(typename Ktraits::scan_t);
                     // printf("smem_size = %d\n", kSmemSize);
                     dim3 grid(params.batch, params.dim / kNRows);
+                    printf("Kernel launch%i %i %i\n",params.batch, params.dim, kNRows);
+
                     auto kernel = &selective_scan_fwd_kernel<Ktraits>;
-                    printf("k mem size %i", kSmemSize);
                     if (kSmemSize >= 48 * 1024) {
                         // C10_CUDA_CHECK(cudaFuncSetAttribute(
                         //     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize));
+                        printf("k mem size %i", kSmemSize);
                         cudaFuncSetAttribute(
                             kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize);
                     }
-                    printf("Kernel launch");
                     kernel<<<grid, Ktraits::kNThreads, kSmemSize, stream>>>(params);
-                    printf("Kernel launched");
+                    printf("Kernel launched\n");
                     // C10_CUDA_KERNEL_LAUNCH_CHECK();
                 });
             });
@@ -339,8 +340,6 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
 
 template<typename input_t, typename weight_t>
 void selective_scan_fwd_cuda(SSMParamsBase &params, cudaStream_t stream) {
-    printf("Seqlen2 %i", params.seqlen);
-    printf("Launching large");
     if (params.seqlen <= 128) {
         selective_scan_fwd_launch<32, 4, input_t, weight_t>(params, stream);
     } else if (params.seqlen <= 256) {
@@ -350,7 +349,6 @@ void selective_scan_fwd_cuda(SSMParamsBase &params, cudaStream_t stream) {
     } else if (params.seqlen <= 1024) {
         selective_scan_fwd_launch<64, 16, input_t, weight_t>(params, stream);
     } else {
-        printf("Launching large");
         selective_scan_fwd_launch<128, 16, input_t, weight_t>(params, stream);
     }
 }

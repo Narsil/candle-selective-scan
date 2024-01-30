@@ -59,7 +59,7 @@ pub fn apply_selective_scan(
     z: Option<&Tensor>,
     delta_bias: Option<&Tensor>,
     delta_softplus: bool,
-) -> Result<()> {
+) -> Result<(Tensor, Option<Tensor>)> {
     unsafe {
         let (batch, dim, seqlen) = u.dims3()?;
         let dstate = a.dims()[1];
@@ -93,6 +93,7 @@ pub fn apply_selective_scan(
         let x_ptr = x.device_ptr()?;
         let z_ptr = z.device_ptr()?;
         let out_z_ptr = out_z.device_ptr()?;
+
 
         let dim_ngroups_ratio = dim / n_groups;
 
@@ -148,7 +149,7 @@ pub fn apply_selective_scan(
         };
         let stream = *device.cu_stream() as *const c_void;
 
-        // let stream = u.device().downcaststream();
+        println!("{a_ptr:?} {b_ptr:?} {c_ptr:?} {u_ptr:?} {delta_ptr:?} {delta_bias_ptr:?} {out_ptr:?} {out_z_ptr:?}");
 
         ffi::selective_scan_fwd_cuda_ffi(
             batch as i32,
@@ -197,7 +198,7 @@ pub fn apply_selective_scan(
             weight_dtype,
             stream,
         );
-        Ok(())
+        Ok((out, out_z))
     }
 }
 
@@ -248,6 +249,8 @@ mod tests {
         let z = selective_scan(&u, &delta, &a, &b, &c, &d).unwrap();
         let z2 = Tensor::zeros((batch, seqlen, hidden_dim), DType::F32, &device).unwrap();
         apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), Some(&z), None, false).unwrap();
+
         assert_eq!(z.dims(), &[batch, seqlen, hidden_dim]);
+        assert_eq!(z2.dims(), &[batch, seqlen, hidden_dim]);
     }
 }

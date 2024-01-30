@@ -3,28 +3,16 @@
 // variable in order to cache the compiled artifacts and avoid recompiling too often.
 use std::path::PathBuf;
 
-const KERNEL_FILES: [&str; 1] = ["kernels/ffi.cu"];
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    for kernel_file in KERNEL_FILES.iter() {
-        println!("cargo:rerun-if-changed={kernel_file}");
-    }
-    let paths = std::fs::read_dir("kernels/").unwrap();
-    for path in paths {
-        let path = path.unwrap().path();
-        println!(
-            "cargo:rerun-if-changed={}", path.display()
-        );
-        println!(
-            "cargo:warning={}", path.display()
-        );
-    }
+    let kernels = vec!["kernels/ffi.cu"];
+    let watch: Vec<_> = std::fs::read_dir("kernels/").unwrap().map(|p| p.unwrap().path()).collect();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
-    let kernels = KERNEL_FILES.iter().collect();
     let builder = bindgen_cuda::Builder::default()
         .kernel_paths(kernels)
+        .watch(watch)
         .out_dir(out_dir.clone())
         .arg("-std=c++17")
         .arg("-O3")

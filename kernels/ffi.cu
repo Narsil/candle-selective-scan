@@ -80,14 +80,20 @@ extern "C" void selective_scan_fwd_cuda_ffi(
             .out_d_stride = out_d_stride,
             .out_z_batch_stride = out_z_batch_stride,
             .out_z_d_stride = out_z_d_stride,
+            .A_ptr = A_ptr,
+            .B_ptr = B_ptr,
+            .C_ptr = C_ptr,
+            .D_ptr = D_ptr,
+            .u_ptr = u_ptr,
+            .delta_ptr = delta_ptr,
+            .delta_bias_ptr = delta_bias_ptr,
+            .out_ptr = out_ptr,
+            .x_ptr = x_ptr,
+            .z_ptr = z_ptr,
         };
-        // std::cerr<<"Seqlen"<<params.seqlen<<std::endl;
-        std::cerr<<input_dtype<<" "<<weight_dtype<<std::endl;
         if (input_dtype == 2 && weight_dtype == 2){
-            printf("Launch");
             selective_scan_fwd_cuda<float, float>(params, stream);
         }else{
-            std::cerr<<"Invalid dtypes"<<std::endl;
             exit(1);
         }
 }
