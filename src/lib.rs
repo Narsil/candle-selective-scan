@@ -59,13 +59,15 @@ pub fn apply_selective_scan(
     z: Option<&Tensor>,
     delta_bias: Option<&Tensor>,
     delta_softplus: bool,
-) -> Result<(Tensor, Option<Tensor>)> {
+) -> Result<(Tensor, Tensor, Option<Tensor>)> {
+    let b = if b.rank() == 3{b.unsqueeze(1)?}else{b.clone()};
+    let c = if c.rank() == 3{c.unsqueeze(1)?}else{c.clone()};
     unsafe {
         let (batch, dim, seqlen) = u.dims3()?;
-        let dstate = a.dims()[1];
+        let dstate = a.dim(1)?;
         let is_variable_b = b.rank() >= 3;
         let is_variable_c = c.rank() >= 3;
-        let n_groups = if is_variable_b { b.dims()[1] } else { 1 };
+        let n_groups = if is_variable_b { b.dim(1)? } else { 1 };
 
         let n_chunks = (seqlen + 2048 - 1) / 2048;
 
@@ -149,37 +151,42 @@ pub fn apply_selective_scan(
         };
         let stream = *device.cu_stream() as *const c_void;
 
-        println!("{a_ptr:?} {b_ptr:?} {c_ptr:?} {u_ptr:?} {delta_ptr:?} {delta_bias_ptr:?} {out_ptr:?} {out_z_ptr:?}");
-
-        ffi::selective_scan_fwd_cuda_ffi(
-            batch as i32,
-            dim as i32,
-            seqlen as i32,
-            dstate as i32,
-            n_groups as i32,
-            n_chunks as i32,
-            dim_ngroups_ratio as i32,
+        let params = ffi::SSMParamsBase{
+            batch: batch as i32,
+            dim: dim as i32,
+            seqlen: seqlen as i32,
+            dstate: dstate as i32,
+            n_groups: n_groups as i32,
+            n_chunks: n_chunks as i32,
+            dim_ngroups_ratio: dim_ngroups_ratio as i32,
             is_variable_b,
             is_variable_c,
             delta_softplus,
             a_d_stride,
             a_dstate_stride,
+
             b_batch_stride,
             b_d_stride,
             b_dstate_stride,
             b_group_stride,
+
             c_batch_stride,
             c_d_stride,
             c_dstate_stride,
             c_group_stride,
+
             u_batch_stride,
             u_d_stride,
+
             delta_batch_stride,
             delta_d_stride,
+
             z_batch_stride,
             z_d_stride,
+
             out_batch_stride,
             out_d_stride,
+
             out_z_batch_stride,
             out_z_d_stride,
             // Common data pointers.
@@ -194,11 +201,21 @@ pub fn apply_selective_scan(
             x_ptr,
             z_ptr,
             out_z_ptr,
+        };
+
+        println!("Params {params:#?}");
+
+        ffi::selective_scan_fwd_cuda_ffi(
+            &params,
             input_dtype,
             weight_dtype,
             stream,
         );
-        Ok((out, out_z))
+        if let Some(out_z) = out_z{
+            Ok((out_z.clone(), x, Some(out_z.clone())))
+        }else{
+            Ok((out, x, out_z))
+        }
     }
 }
 
@@ -232,25 +249,74 @@ mod tests {
         ys + u.broadcast_mul(d)
     }
     #[test]
-    fn test_selective_scan() {
+    fn test_selective_scan_minimal() -> Result<()>{
         let seqlen = 5;
         let batch = 1;
         let hidden_dim = 1536;
-        let x = 16;
-        let device = Device::new_cuda(0).unwrap();
+        let dstate = 16;
+        let device = Device::new_cuda(0)?;
         // Tensor[dims 1, 5, 1536; f32] Tensor[dims 1, 5, 1536; f32] Tensor[dims 1536, 16; f32] Tensor[dims 1, 5, 16; f32] Tensor[dims 1, 5, 16; f32] Tensor[dims 1536; f32]
-        let u = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, hidden_dim), &device).unwrap();
-        let delta = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, hidden_dim), &device).unwrap();
-        let a = Tensor::randn(0.0f32, 1.0f32, (hidden_dim, x), &device).unwrap();
-        let b = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, x), &device).unwrap();
-        let c = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, x), &device).unwrap();
-        let d = Tensor::randn(0.0f32, 1.0f32, (hidden_dim,), &device).unwrap();
+        let u = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, hidden_dim), &device)?;
+        let delta = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, hidden_dim), &device)?;
+        let a = Tensor::randn(0.0f32, 1.0f32, (hidden_dim, dstate), &device)?;
+        let b = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, dstate), &device)?;
+        let c = Tensor::randn(0.0f32, 1.0f32, (batch, seqlen, dstate), &device)?;
+        let d = Tensor::randn(0.0f32, 1.0f32, (hidden_dim,), &device)?;
 
-        let z = selective_scan(&u, &delta, &a, &b, &c, &d).unwrap();
-        let (z2, _) = apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), None, None, false).unwrap();
+        let out = selective_scan(&u, &delta, &a, &b, &c, &d)?;
+        let (out2, _, _) = apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), None, None, false)?;
 
-        assert_eq!(z.dims(), &[batch, seqlen, hidden_dim]);
-        assert_eq!(z2.dims(), &[batch, seqlen, hidden_dim]);
-        assert_eq!(z.flatten_all().unwrap().to_vec1::<f32>().unwrap(), z2.flatten_all().unwrap().to_vec1::<f32>().unwrap());
+        assert_eq!(out.dims(), &[batch, seqlen, hidden_dim]);
+        // assert_eq!(x.dims(), &[batch, seqlen, 1, dstate * 2]);
+        assert_eq!(out2.dims(), &[batch, seqlen, hidden_dim]);
+        let out = out.flatten_all()?.to_vec1::<f32>()?;
+        let out2 = out2.flatten_all()?.to_vec1::<f32>()?;
+        assert_eq!(out[..5], out2[..5]);
+        assert_eq!(out, out2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_selective_scan_original() -> Result<()> {
+        let device = Device::new_cuda(0)?;
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+        for filename in std::fs::read_dir(dir).unwrap(){
+            let path = filename?.path();
+            if path.display().to_string().ends_with(".safetensors"){
+                let weights = candle::safetensors::load(path.clone(), &device)?;
+                let file = std::fs::File::open(path.clone()).unwrap();
+                let buffer = unsafe { memmap2::MmapOptions::new().map(&file).unwrap() };
+                let (_, metadata) = safetensors::SafeTensors::read_metadata(&buffer).unwrap();
+                let metadata= metadata.metadata();
+
+                let u = weights.get("u").unwrap();
+                let delta = weights.get("delta").unwrap();
+                let a = weights.get("A").unwrap();
+                let b = weights.get("B").unwrap();
+                let c = weights.get("C").unwrap();
+                let d = weights.get("D");
+                let z = weights.get("z");
+                let delta_bias = weights.get("delta_bias");
+                let delta_softplus = metadata.as_ref().map(|m| m.get("delta_softplus")) == Some(Some(&"True".to_string()));
+                let out = weights.get("out").unwrap();
+                let (out2, _, _) = apply_selective_scan(&u, &delta, &a, &b, &c, d, z, delta_bias, delta_softplus).unwrap();
+
+                assert_eq!(out.dims(), out2.dims());
+                let out = out.flatten_all().unwrap().to_vec1::<f32>().unwrap();
+                let out2 = out2.flatten_all().unwrap().to_vec1::<f32>().unwrap();
+
+
+                // if out[..5] == out2[..5]{
+                //     println!("OK");
+                // }else{
+                //     println!("NOT OK {:?} - {:?} - {:?}", &out[..5], &out2[..5], path.display());
+                // }
+                assert_eq!(out[..5], out2[..5], "{}", path.display());
+                assert_eq!(out, out2);
+
+
+            }
+        }
+        Ok(())
     }
 }

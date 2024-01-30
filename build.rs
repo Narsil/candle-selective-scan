@@ -26,7 +26,6 @@ fn main() {
         .arg("--verbose");
 
     let out_file = out_dir.join("libselectivescan.a");
-    println!("cargo:warning={}", out_file.display());
     builder.build_lib(out_file);
 
     println!("cargo:rustc-link-search={}", out_dir.display());

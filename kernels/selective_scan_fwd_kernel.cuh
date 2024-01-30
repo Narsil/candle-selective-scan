@@ -309,7 +309,7 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
     // processing 1 row.
     constexpr int kNRows = 1;
 
-    printf("Launch start");
+    // printf("Launch start");
     BOOL_SWITCH(params.seqlen % (kNThreads * kNItems) == 0, kIsEvenLen, [&] {
         BOOL_SWITCH(params.is_variable_B, kIsVariableB, [&] {
             BOOL_SWITCH(params.is_variable_C, kIsVariableC, [&] {
@@ -319,18 +319,18 @@ void selective_scan_fwd_launch(SSMParamsBase &params, cudaStream_t stream) {
                     constexpr int kSmemSize = Ktraits::kSmemSize + kNRows * MAX_DSTATE * sizeof(typename Ktraits::scan_t);
                     // printf("smem_size = %d\n", kSmemSize);
                     dim3 grid(params.batch, params.dim / kNRows);
-                    printf("Kernel launch%i %i %i\n",params.batch, params.dim, kNRows);
+                    // printf("Kernel launch%i %i %i\n",params.batch, params.dim, kNRows);
 
                     auto kernel = &selective_scan_fwd_kernel<Ktraits>;
                     if (kSmemSize >= 48 * 1024) {
                         // C10_CUDA_CHECK(cudaFuncSetAttribute(
                         //     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize));
-                        printf("k mem size %i", kSmemSize);
+                        // printf("k mem size %i", kSmemSize);
                         cudaFuncSetAttribute(
                             kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, kSmemSize);
                     }
                     kernel<<<grid, Ktraits::kNThreads, kSmemSize, stream>>>(params);
-                    printf("Kernel launched\n");
+                    // printf("Kernel launched\n");
                     // C10_CUDA_KERNEL_LAUNCH_CHECK();
                 });
             });

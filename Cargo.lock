@@ -101,13 +101,13 @@ dependencies = [
  "cudarc",
  "gemm",
  "half",
- "memmap2",
+ "memmap2 0.7.1",
  "num-traits",
  "num_cpus",
  "rand",
  "rand_distr",
  "rayon",
- "safetensors",
+ "safetensors 0.3.3",
  "thiserror",
  "yoke",
  "zip",
@@ -131,6 +131,8 @@ dependencies = [
  "bindgen_cuda",
  "candle-core",
  "half",
+ "memmap2 0.9.4",
+ "safetensors 0.4.2",
 ]
 
 [[package]]
@@ -408,6 +410,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memmap2"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe751422e4a8caa417e13c3ea66452215d7d63e19e604f4980461212f3ae1322"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -595,6 +606,16 @@ name = "safetensors"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d93279b86b3de76f820a8854dd06cbc33cfa57a417b19c47f6a25280112fb1df"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "safetensors"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d980e6bfb34436fb0a81e42bc41af43f11805bbbca443e7f68e9faaabe669ed"
 dependencies = [
  "serde",
  "serde_json",
