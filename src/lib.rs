@@ -247,10 +247,10 @@ mod tests {
         let d = Tensor::randn(0.0f32, 1.0f32, (hidden_dim,), &device).unwrap();
 
         let z = selective_scan(&u, &delta, &a, &b, &c, &d).unwrap();
-        let z2 = Tensor::zeros((batch, seqlen, hidden_dim), DType::F32, &device).unwrap();
-        apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), Some(&z), None, false).unwrap();
+        let (z2, _) = apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), None, None, false).unwrap();
 
         assert_eq!(z.dims(), &[batch, seqlen, hidden_dim]);
         assert_eq!(z2.dims(), &[batch, seqlen, hidden_dim]);
+        assert_eq!(z.flatten_all().unwrap().to_vec1::<f32>().unwrap(), z2.flatten_all().unwrap().to_vec1::<f32>().unwrap());
     }
 }

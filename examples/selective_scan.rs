@@ -40,10 +40,9 @@ fn main(){
         let d = Tensor::randn(0.0f32, 1.0f32, (hidden_dim, ), &device).unwrap();
 
         let out = selective_scan(&u, &delta, &a, &b, &c, &d).unwrap();
-        println!("{out}");
         let (out2, _) = apply_selective_scan(&u, &delta, &a, &b, &c, Some(&d), None, None, false).unwrap();
-        // assert_eq!(out.dims(), &[batch, seqlen, hidden_dim]);
-        // assert_eq!(out2.dims(), &[batch, seqlen, hidden_dim]);
+        assert_eq!(out.dims(), &[batch, seqlen, hidden_dim]);
+        assert_eq!(out2.dims(), &[batch, seqlen, hidden_dim]);
+        println!("{out}");
         println!("{out2}");
-        std::process::exit(0);
 }

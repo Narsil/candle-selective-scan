@@ -90,6 +90,7 @@ extern "C" void selective_scan_fwd_cuda_ffi(
             .out_ptr = out_ptr,
             .x_ptr = x_ptr,
             .z_ptr = z_ptr,
+            .out_z_ptr = out_z_ptr,
         };
         if (input_dtype == 2 && weight_dtype == 2){
             selective_scan_fwd_cuda<float, float>(params, stream);
