@@ -206,15 +206,10 @@ pub fn apply_causal_conv1d_update(
     _seq_idx: Option<&Tensor>,
     activation: bool,
 ) -> Result<Tensor> {
-    // let (batch, dim) = x.dims2()?;
     let dtype_in = x.dtype();
     let x = x.to_dtype(weight.dtype())?;
-    // let seqlen = x.dim(2)?;
-    let width = weight.dim(1)?;
 
-    // let new_state = conv_state.roll(shifts, dims)?;
-    // conv_state[:, :, -1] = x;
-    let new_state = Tensor::cat(&[conv_state.i((.., .., width - 1))?, x], D::Minus1)?;
+    let new_state = Tensor::cat(&[conv_state.i((.., .., 1..))?, x], D::Minus1)?;
     let mut out = (new_state * weight)?.sum(D::Minus1)?;
     if let Some(bias) = bias {
         out = (out + bias)?;
