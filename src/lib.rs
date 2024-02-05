@@ -84,14 +84,7 @@ pub fn apply_selective_scan(
         Device::Cuda(_) => {
             cuda::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus)
         }
-        #[cfg(feature = "metal")]
-        Device::Metal(_) => {
-            compile_error!("Metal is not supported yet");
-            candle::bail!("Device not supported");
-        }
-        dev => {
-            candle::bail!("Device {dev:?} not supported");
-        }
+        dev => cpu::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus),
     }
 }
 
