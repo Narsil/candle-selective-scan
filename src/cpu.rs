@@ -23,7 +23,7 @@ pub fn apply_selective_scan(
         delta = (delta.broadcast_add(&delta_bias))?;
     }
     if delta_softplus {
-        delta = ((delta.exp()? + 1.)?).log()?;
+        delta = softplus(&delta)?
     }
 
     let batch = u.dim(0)?;
@@ -118,6 +118,64 @@ pub fn apply_selective_scan(
     Ok((out, Some(last_state)))
 }
 
+pub fn apply_selective_scan_update(
+    state: &mut Tensor,
+    u: &Tensor,
+    delta: &Tensor,
+    a: &Tensor,
+    b: &Tensor,
+    c: &Tensor,
+    d: Option<&Tensor>,
+    z: Option<&Tensor>,
+    delta_bias: Option<&Tensor>,
+    delta_softplus: bool,
+) -> Result<(Tensor, Tensor)> {
+
+    let (batch, dim, dstate) = state.dims3()?;
+    assert_eq!(u.dims(), [batch, dim]);
+    assert_eq!(delta.dims(), [batch, dim]);
+    assert_eq!(a.dims(), [dim, dstate]);
+    assert_eq!(b.dims(), [batch, dstate]);
+    assert_eq!(c.dims(), [batch, dstate]);
+
+    let delta = if let Some(delta_bias) = delta_bias{
+        delta.broadcast_add(&delta_bias)?
+    }else{
+        delta.clone()
+    };
+    let delta = if delta_softplus{
+        softplus(&delta)?
+    }else{
+        delta.clone()
+    };
+    // delta: (batch, dim)
+    // a: (dim, dstate)
+    // delta_a = (batch, dim, dstate)
+    let delta = delta.unsqueeze(2)?;
+    let delta_a = delta.broadcast_mul(&a.unsqueeze(0)?)?;
+    let delta_a = delta_a.exp()?;
+    assert_eq!(delta_a.dims(), [batch, dim, dstate]);
+
+    let delta_b = delta.broadcast_mul(&b.unsqueeze(1)?)?;
+
+    let new_state = ((&*state * &delta_a)? + delta_b.broadcast_mul(&u.unsqueeze(2)?)?)?;
+
+    let cstate = state.to_dtype(c.dtype())?;
+    let mut out = cstate.matmul(&c.unsqueeze(2)?)?.squeeze(1)?;
+    if let Some(d) = &d{
+        out = (out + u.broadcast_mul(&d.unsqueeze(0)?)?)?;
+    }
+    if let Some(z) = &z{
+        out = (out * silu(z)?)?;
+    }
+
+    Ok((out, new_state))
+}
+
 fn silu(x: &Tensor) -> Result<Tensor> {
     x / (x.neg()?.exp()? + 1.0)?
+}
+
+fn softplus(x: &Tensor) -> Result<Tensor>{
+    ((x.exp()? + 1.)?).log()
 }

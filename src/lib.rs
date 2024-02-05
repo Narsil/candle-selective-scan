@@ -88,6 +88,25 @@ pub fn apply_selective_scan(
     }
 }
 
+pub fn apply_selective_scan_update(
+    state: &mut Tensor,
+    u: &Tensor,
+    delta: &Tensor,
+    a: &Tensor,
+    b: &Tensor,
+    c: &Tensor,
+    d: Option<&Tensor>,
+    z: Option<&Tensor>,
+    delta_bias: Option<&Tensor>,
+    delta_softplus: bool,
+) -> Result<(Tensor, Tensor)> {
+    check_same_device!(state, u, delta, a, b, c, d, z, delta_bias);
+
+    match u.device() {
+        _ => cpu::apply_selective_scan_update(state, u, delta, a, b, c, d, z, delta_bias, delta_softplus),
+    }
+}
+
 pub fn apply_causal_conv1d(
     x: &Tensor,
     weight: &Tensor,
