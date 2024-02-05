@@ -9,7 +9,7 @@ edition = "2021"
 crate-type = ["lib", "staticlib"]
 
 [dependencies]
-candle = { version = "0.3.2", package="candle-core" }
+candle = { version = "0.3.3", package="candle-core" }
 half = "2.3.1"
 
 [build-dependencies]
@@ -21,3 +21,4 @@ safetensors = "0.4.2"
 
 [features]
 cuda = ["candle/cuda", "dep:bindgen_cuda"]
+metal = ["candle/metal"]
