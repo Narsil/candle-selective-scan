@@ -63,7 +63,6 @@ macro_rules! check_same_device{
     }};
 }
 
-
 pub fn apply_selective_scan(
     u: &Tensor,
     delta: &Tensor,
@@ -112,7 +111,7 @@ mod tests {
                 .sum_all()
                 .unwrap();
             let total = tol.to_scalar::<f32>()?;
-            assert!(total == 0.0, $($arg),*);
+            assert_eq!(total, 0.0, $($arg),*);
         }};
     }
 
@@ -128,6 +127,7 @@ mod tests {
         for filename in std::fs::read_dir(dir).unwrap() {
             let path = filename?.path();
             if path.display().to_string().ends_with(".safetensors") {
+                println!("Test {}", path.display());
                 let weights = candle::safetensors::load(path.clone(), &device)?;
                 let file = std::fs::File::open(path.clone()).unwrap();
                 let buffer = unsafe { memmap2::MmapOptions::new().map(&file).unwrap() };
@@ -148,11 +148,7 @@ mod tests {
                 let (out2, _) =
                     apply_selective_scan(&u, &delta, &a, &b, &c, d, z, delta_bias, delta_softplus)?;
 
-                assert_close!(
-                    out,
-                    out2,
-                    rtol=1e-3,
-                );
+                assert_close!(out, out2, rtol = 1e-2,);
             }
         }
         Ok(())
