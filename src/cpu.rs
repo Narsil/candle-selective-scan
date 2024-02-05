@@ -1,4 +1,4 @@
-use candle::{DType, IndexOp, Result, Tensor};
+use candle::{DType, IndexOp, Result, Tensor, D};
 
 pub fn apply_selective_scan(
     u: &Tensor,
@@ -130,7 +130,6 @@ pub fn apply_selective_scan_update(
     delta_bias: Option<&Tensor>,
     delta_softplus: bool,
 ) -> Result<(Tensor, Tensor)> {
-
     let (batch, dim, dstate) = state.dims3()?;
     assert_eq!(u.dims(), [batch, dim]);
     assert_eq!(delta.dims(), [batch, dim]);
@@ -138,14 +137,14 @@ pub fn apply_selective_scan_update(
     assert_eq!(b.dims(), [batch, dstate]);
     assert_eq!(c.dims(), [batch, dstate]);
 
-    let delta = if let Some(delta_bias) = delta_bias{
+    let delta = if let Some(delta_bias) = delta_bias {
         delta.broadcast_add(&delta_bias)?
-    }else{
+    } else {
         delta.clone()
     };
-    let delta = if delta_softplus{
+    let delta = if delta_softplus {
         softplus(&delta)?
-    }else{
+    } else {
         delta.clone()
     };
     // delta: (batch, dim)
@@ -162,20 +161,75 @@ pub fn apply_selective_scan_update(
 
     let cstate = state.to_dtype(c.dtype())?;
     let mut out = cstate.matmul(&c.unsqueeze(2)?)?.squeeze(1)?;
-    if let Some(d) = &d{
+    if let Some(d) = &d {
         out = (out + u.broadcast_mul(&d.unsqueeze(0)?)?)?;
     }
-    if let Some(z) = &z{
+    if let Some(z) = &z {
         out = (out * silu(z)?)?;
     }
 
     Ok((out, new_state))
 }
 
+pub fn apply_causal_conv1d(
+    x: &Tensor,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    _seq_idx: Option<&Tensor>,
+    activation: bool,
+) -> Result<Tensor> {
+    let dtype_in = x.dtype();
+    let x = x.to_dtype(weight.dtype())?;
+    let seqlen = x.dim(2)?;
+    let (_dim, width) = weight.dims2()?;
+    let padding = width - 1;
+    let stride = 1;
+    let dilation = 1;
+    let groups = 1;
+    let mut out = x.conv1d(weight, padding, stride, dilation, groups)?;
+    if let Some(bias) = bias {
+        out = (out + bias)?;
+    }
+    let mut out = out.i((.., .., ..seqlen))?;
+    if activation {
+        out = silu(&out)?;
+    }
+    let out = out.to_dtype(dtype_in)?;
+    Ok(out)
+}
+
+pub fn apply_causal_conv1d_update(
+    x: &Tensor,
+    conv_state: &mut Tensor,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    _seq_idx: Option<&Tensor>,
+    activation: bool,
+) -> Result<Tensor> {
+    // let (batch, dim) = x.dims2()?;
+    let dtype_in = x.dtype();
+    let x = x.to_dtype(weight.dtype())?;
+    // let seqlen = x.dim(2)?;
+    let width = weight.dim(1)?;
+
+    // let new_state = conv_state.roll(shifts, dims)?;
+    // conv_state[:, :, -1] = x;
+    let new_state = Tensor::cat(&[conv_state.i((.., .., width - 1))?, x], D::Minus1)?;
+    let mut out = (new_state * weight)?.sum(D::Minus1)?;
+    if let Some(bias) = bias {
+        out = (out + bias)?;
+    }
+    if activation {
+        out = silu(&out)?;
+    }
+    let out = out.to_dtype(dtype_in)?;
+    Ok(out)
+}
+
 fn silu(x: &Tensor) -> Result<Tensor> {
     x / (x.neg()?.exp()? + 1.0)?
 }
 
-fn softplus(x: &Tensor) -> Result<Tensor>{
+fn softplus(x: &Tensor) -> Result<Tensor> {
     ((x.exp()? + 1.)?).log()
 }

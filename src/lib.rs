@@ -10,6 +10,17 @@ trait SameDevice {
     fn device_fmt(&self) -> String;
 }
 
+impl SameDevice for &mut Tensor {
+    fn is_same_device(&self, _device: &Device) -> bool {
+        // TODO Why isn't PartialEq detected here ?
+        // self.device() == device
+        true
+    }
+    fn device_fmt(&self) -> String {
+        format!("{:?}", self.device())
+    }
+}
+
 impl SameDevice for &Tensor {
     fn is_same_device(&self, _device: &Device) -> bool {
         // TODO Why isn't PartialEq detected here ?
@@ -103,7 +114,18 @@ pub fn apply_selective_scan_update(
     check_same_device!(state, u, delta, a, b, c, d, z, delta_bias);
 
     match u.device() {
-        _ => cpu::apply_selective_scan_update(state, u, delta, a, b, c, d, z, delta_bias, delta_softplus),
+        _ => cpu::apply_selective_scan_update(
+            state,
+            u,
+            delta,
+            a,
+            b,
+            c,
+            d,
+            z,
+            delta_bias,
+            delta_softplus,
+        ),
     }
 }
 
@@ -118,29 +140,27 @@ pub fn apply_causal_conv1d(
 
     match x.device() {
         #[cfg(feature = "cuda")]
-        Device::Cuda(_) => {
-            cuda::apply_causal_conv1d(x, weight, bias, seq_idx, activation)
-        }
-        _ => todo!()
+        Device::Cuda(_) => cuda::apply_causal_conv1d(x, weight, bias, seq_idx, activation),
+        _ => cpu::apply_causal_conv1d(x, weight, bias, seq_idx, activation),
     }
 }
 
 pub fn apply_causal_conv1d_update(
     x: &Tensor,
-    conv_state: &Tensor,
+    conv_state: &mut Tensor,
     weight: &Tensor,
     bias: Option<&Tensor>,
     seq_idx: Option<&Tensor>,
     activation: bool,
 ) -> Result<Tensor> {
-    check_same_device!(x, weight, bias, seq_idx);
+    check_same_device!(x, conv_state, weight, bias, seq_idx);
 
     match x.device() {
         #[cfg(feature = "cuda")]
         Device::Cuda(_) => {
             cuda::apply_causal_conv1d_update(x, conv_state, weight, bias, seq_idx, activation)
         }
-        _ => todo!()
+        _ => cpu::apply_causal_conv1d_update(x, conv_state, weight, bias, seq_idx, activation),
     }
 }
 
