@@ -3,11 +3,13 @@
 // variable in order to cache the compiled artifacts and avoid recompiling too often.
 use std::path::PathBuf;
 
-
-fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
+#[cfg(feature = "cuda")]
+fn build_cuda() {
     let kernels = vec!["kernels/ffi.cu"];
-    let watch: Vec<_> = std::fs::read_dir("kernels/").unwrap().map(|p| p.unwrap().path()).collect();
+    let watch: Vec<_> = std::fs::read_dir("kernels/")
+        .unwrap()
+        .map(|p| p.unwrap().path())
+        .collect();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     let builder = bindgen_cuda::Builder::default()
@@ -32,4 +34,10 @@ fn main() {
     println!("cargo:rustc-link-lib=selectivescan");
     println!("cargo:rustc-link-lib=dylib=stdc++");
     println!("cargo:rustc-link-lib=dylib=cudart");
+}
+
+fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    #[cfg(feature = "cuda")]
+    build_cuda()
 }
