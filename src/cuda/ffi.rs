@@ -49,11 +49,49 @@ pub struct SSMParamsBase {
     pub out_z_ptr: *const c_void,
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct ConvParamsBase {
+    pub batch: c_int,
+    pub dim: c_int,
+    pub seqlen: c_int,
+    pub width: c_int,
+    pub silu_activation: bool,
+
+    pub x_batch_stride: u32,
+    pub x_c_stride: u32,
+    pub x_l_stride: u32,
+    pub weight_c_stride: u32,
+    pub weight_width_stride: u32,
+    pub out_batch_stride: u32,
+    pub out_c_stride: u32,
+    pub out_l_stride: u32,
+
+    pub conv_state_batch_stride: u32,
+    pub conv_state_c_stride: u32,
+    pub conv_state_l_stride: u32,
+
+    pub x_ptr: *const c_void,
+    pub weight_ptr: *const c_void,
+    pub bias_ptr: *const c_void,
+    pub out_ptr: *const c_void,
+    pub conv_state_ptr: *const c_void,
+    pub seq_idx_ptr: *const c_void,
+}
+
 extern "C" {
-    pub(crate) fn  selective_scan_fwd_cuda_ffi(
+    pub(crate) fn selective_scan_fwd_cuda_ffi(
         params: &SSMParamsBase,
         input_dtype: u32,
         weight_dtype: u32,
-        stream: *const c_void
+        stream: *const c_void,
+    );
+
+    pub(crate) fn causal_conv1d_ffi(
+        params: &ConvParamsBase,
+        input_dtype: u32,
+        weight_dtype: u32,
+        is_channel_last: bool,
+        stream: *const c_void,
     );
 }

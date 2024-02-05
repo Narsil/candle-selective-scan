@@ -218,3 +218,138 @@ pub fn apply_selective_scan(
         }
     }
 }
+
+pub fn apply_causal_conv1d(
+    x: &Tensor,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    seq_idx: Option<&Tensor>,
+    activation: bool,
+)-> Result<Tensor>{
+    apply_causal_conv1d_(x, None, weight, bias, seq_idx, activation)
+}
+
+pub fn apply_causal_conv1d_update(
+    x: &Tensor,
+    conv_state: &Tensor,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    seq_idx: Option<&Tensor>,
+    activation: bool,
+)-> Result<Tensor>{
+    apply_causal_conv1d_(x, Some(conv_state), weight, bias, seq_idx, activation)
+}
+
+fn apply_causal_conv1d_(
+    x: &Tensor,
+    conv_state: Option<&Tensor>,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    seq_idx: Option<&Tensor>,
+    activation: bool,
+) -> Result<Tensor> {
+    let batch = x.dim(0)?;
+    let dim = x.dim(1)?;
+    let seqlen = x.dim(2)?;
+    let width = weight.dim(1)?;
+    assert_eq!(x.dims(), [batch, dim, seqlen]);
+    assert_eq!(weight.dims(), [dim, width]);
+    assert_eq!(weight.dims(), [dim, width]);
+
+    let is_channel_last = if x.stride()[1] == 1{
+        assert_eq!(x.stride()[1], 1);
+        true
+    }else{
+        assert_eq!(x.stride()[2], 1);
+        false
+    };
+    if is_channel_last {
+       assert_eq!(dim % 8,  0, "causal_conv1d only supports channel dimension divisible by 8 for now");
+    }
+
+  assert!(width >= 2 && width <= 4, "causal_conv1d only supports width between 2 and 4");
+
+  if let Some(seq_idx) = &seq_idx{
+      assert!(is_channel_last, "seq_idx only supported for channel last layout");
+      assert_eq!(seq_idx.dtype(), DType::U32);
+      assert!(seq_idx.is_contiguous());
+      assert_eq!(seq_idx.dims(), [batch, seqlen]);
+  }
+
+  if let Some(bias) = &bias{
+      assert_eq!(bias.dtype(), x.dtype());
+      assert!(bias.is_contiguous());
+      assert_eq!(bias.dims(), [dim]);
+  }
+
+  let out = x.zeros_like()?;
+
+
+  let xs = x.stride();
+  let (x_batch_stride, x_c_stride, x_l_stride) = (xs[0] as u32, xs[1] as u32, xs[2] as u32);
+
+  let ws = x.stride();
+  let (weight_c_stride, weight_width_stride) = (ws[0] as u32, ws[1] as u32);
+
+  let outs = out.stride();
+  let (out_batch_stride, out_c_stride, out_l_stride) = (outs[0] as u32, outs[1] as u32, outs[2] as u32);
+
+  let (conv_state_batch_stride, conv_state_c_stride, conv_state_l_stride) = if let Some(conv_state) = &conv_state{
+      let conv_states = conv_state.stride();
+      (conv_states[0] as u32, conv_states[1] as u32, conv_states[2] as u32)
+  }else{
+      (0, 0, 0)
+  };
+
+  unsafe{
+  let conv_state_ptr = conv_state.device_ptr()?;
+  let x_ptr = x.device_ptr()?;
+  let weight_ptr = weight.device_ptr()?;
+  let bias_ptr = bias.device_ptr()?;
+  let out_ptr = out.device_ptr()?;
+  let seq_idx_ptr = seq_idx.device_ptr()?;
+  let params = ffi::ConvParamsBase{
+      batch: batch as i32,
+      dim: dim as i32,
+      seqlen: seqlen as i32,
+      width: width as i32,
+      silu_activation: activation,
+
+      x_batch_stride,
+      x_c_stride,
+      x_l_stride,
+
+      weight_c_stride,
+      weight_width_stride,
+
+      out_batch_stride,
+      out_c_stride,
+      out_l_stride,
+
+      conv_state_batch_stride,
+      conv_state_c_stride,
+      conv_state_l_stride,
+
+      x_ptr,
+      weight_ptr,
+      bias_ptr,
+      out_ptr,
+      conv_state_ptr,
+      seq_idx_ptr,
+
+
+
+  };
+    let input_dtype = dtype_as_u32(x.dtype())?;
+    let weight_dtype = dtype_as_u32(weight.dtype())?;
+
+    let device = x.device();
+    let device = match device {
+        Device::Cuda(cuda_device) => cuda_device,
+        dev => candle::bail!("Invalid device {dev:?}"),
+    };
+    let stream = *device.cu_stream() as *const c_void;
+    ffi::causal_conv1d_ffi(&params, input_dtype, weight_dtype, is_channel_last, stream);
+  }
+    Ok(out)
+}

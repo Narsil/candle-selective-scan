@@ -5,7 +5,10 @@
 #[cfg(feature = "cuda")]
 fn build_cuda() {
     use std::path::PathBuf;
-    let kernels = vec!["kernels/selective_scan/ffi.cu", "kernels/causal_conv1d/ffi.cu"];
+    let kernels = vec![
+        "kernels/selective_scan/ffi.cu",
+        "kernels/causal_conv1d/ffi.cu",
+    ];
     let watch: Vec<_> = std::fs::read_dir("kernels/")
         .unwrap()
         .map(|p| p.unwrap().path())

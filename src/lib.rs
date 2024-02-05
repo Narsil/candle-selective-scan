@@ -88,18 +88,49 @@ pub fn apply_selective_scan(
     }
 }
 
+pub fn apply_causal_conv1d(
+    x: &Tensor,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    seq_idx: Option<&Tensor>,
+    activation: bool,
+) -> Result<Tensor> {
+    check_same_device!(x, weight, bias, seq_idx);
+
+    match x.device() {
+        #[cfg(feature = "cuda")]
+        Device::Cuda(_) => {
+            cuda::apply_causal_conv1d(x, weight, bias, seq_idx, activation)
+        }
+        _ => todo!()
+    }
+}
+
+pub fn apply_causal_conv1d_update(
+    x: &Tensor,
+    conv_state: &Tensor,
+    weight: &Tensor,
+    bias: Option<&Tensor>,
+    seq_idx: Option<&Tensor>,
+    activation: bool,
+) -> Result<Tensor> {
+    check_same_device!(x, weight, bias, seq_idx);
+
+    match x.device() {
+        #[cfg(feature = "cuda")]
+        Device::Cuda(_) => {
+            cuda::apply_causal_conv1d_update(x, conv_state, weight, bias, seq_idx, activation)
+        }
+        _ => todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use candle::DType;
 
     macro_rules! assert_close {
-        // ($left:ident, $right:ident) => {{
-        //     assert_close!($left, $right, rtol=1e-5, )
-        // }};
-        // ($left:ident, $right:ident, $($arg:tt)*) => {{
-        //     assert_close!($left, $right, rtol=1e-5, $($arg:tt)*)
-        // }};
         ($left:ident, $right:ident, rtol=$rtol:expr, $($arg:tt)*) => {{
             assert_eq!($left.shape(), $right.shape(), $($arg),*);
             let diff = (($left - &$right)?.abs().unwrap() / $right.abs().unwrap()).unwrap();
