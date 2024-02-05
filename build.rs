@@ -1,10 +1,10 @@
 // Build script to run nvcc and generate the C glue code for launching the flash-attention kernel.
 // The cuda build time is very long so one can set the CANDLE_FLASH_ATTN_BUILD_DIR environment
 // variable in order to cache the compiled artifacts and avoid recompiling too often.
-use std::path::PathBuf;
 
 #[cfg(feature = "cuda")]
 fn build_cuda() {
+    use std::path::PathBuf;
     let kernels = vec!["kernels/ffi.cu"];
     let watch: Vec<_> = std::fs::read_dir("kernels/")
         .unwrap()

@@ -1,4 +1,4 @@
-use candle::{bail, DType, Device, IndexOp, Result, Storage, Tensor};
+use candle::{DType, IndexOp, Result, Tensor};
 
 pub fn apply_selective_scan(
     u: &Tensor,
@@ -31,7 +31,7 @@ pub fn apply_selective_scan(
     let dim = a.dim(0)?;
     let dstate = a.dim(1)?;
     let is_variable_b = b.rank() >= 3;
-    let is_variable_c = c.rank() >= 3;
+    // let is_variable_c = c.rank() >= 3;
 
     let b = b.to_dtype(DType::F32)?;
     let c = c.to_dtype(DType::F32)?;

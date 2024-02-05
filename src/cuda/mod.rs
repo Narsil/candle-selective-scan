@@ -59,7 +59,7 @@ pub fn apply_selective_scan(
     z: Option<&Tensor>,
     delta_bias: Option<&Tensor>,
     delta_softplus: bool,
-) -> Result<(Tensor, Tensor, Option<Tensor>)> {
+) -> Result<(Tensor, Option<Tensor>)> {
     let b = if b.rank() == 3 {
         b.unsqueeze(1)?
     } else {
@@ -212,9 +212,9 @@ pub fn apply_selective_scan(
 
         ffi::selective_scan_fwd_cuda_ffi(&params, input_dtype, weight_dtype, stream);
         if let Some(out_z) = out_z {
-            Ok((out_z.clone(), x, Some(out_z.clone())))
+            Ok((out_z.clone(), Some(out_z.clone())))
         } else {
-            Ok((out, x, out_z))
+            Ok((out, out_z))
         }
     }
 }

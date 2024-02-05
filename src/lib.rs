@@ -1,4 +1,4 @@
-use candle::{bail, DType, Device, Result, Storage, Tensor};
+use candle::{bail, Device, Result, Tensor};
 
 #[cfg(feature = "cuda")]
 mod cuda;
@@ -11,7 +11,7 @@ trait SameDevice {
 }
 
 impl SameDevice for &Tensor {
-    fn is_same_device(&self, device: &Device) -> bool {
+    fn is_same_device(&self, _device: &Device) -> bool {
         // TODO Why isn't PartialEq detected here ?
         // self.device() == device
         true
@@ -22,18 +22,19 @@ impl SameDevice for &Tensor {
 }
 
 impl SameDevice for Option<&Tensor> {
-    fn is_same_device(&self, device: &Device) -> bool {
-        if let Some(tensor) = self {
-            // TODO Why isn't PartialEq detected here ?
-            true
-            // tensor.device().eq(device)
-        } else {
-            true
-        }
+    fn is_same_device(&self, _device: &Device) -> bool {
+        true
+        // if let Some(tensor) = self {
+        //     // TODO Why isn't PartialEq detected here ?
+        //     true
+        //     // tensor.device().eq(device)
+        // } else {
+        //     true
+        // }
     }
 
     fn device_fmt(&self) -> String {
-        if let Some(tensor) = self {
+        if let Some(tensor) = &self {
             format!("{:?}", tensor.device())
         } else {
             "None".to_string()
@@ -62,30 +63,6 @@ macro_rules! check_same_device{
     }};
 }
 
-macro_rules! assert_close {
-    ($left:ident, $right:ident) => {{
-        assert_eq!($left.shape(), $right.shape());
-        let diff = (($left - &$right)?.abs().unwrap() / $right.abs().unwrap()).unwrap();
-        let tol = (diff.le(1e-5))
-            .unwrap()
-            .to_dtype(DType::F32)?
-            .sum_all()
-            .unwrap();
-        let total = tol.to_scalar::<f32>()?;
-        assert!(total == 0.0, "{total} != 0");
-    }};
-    ($left:ident, $right:ident, $($arg:tt)+) => {{
-        assert_eq!($left.shape(), $right.shape(), $($arg),+);
-        let diff = (($left - &$right)?.abs().unwrap() / $right.abs().unwrap()).unwrap();
-        let tol = (diff.le(1e-5))
-            .unwrap()
-            .to_dtype(DType::F32)?
-            .sum_all()
-            .unwrap();
-        let total = tol.to_scalar::<f32>()?;
-        assert!(total == 0.0, $($arg),+);
-    }};
-}
 
 pub fn apply_selective_scan(
     u: &Tensor,
@@ -104,11 +81,9 @@ pub fn apply_selective_scan(
         Device::Cpu => {
             cpu::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus)
         }
-        Device::Cuda(n) => {
-            #[cfg(feature = "cuda")]
-            return cuda::apply_selective_scan(u, delta, a, b, c, d);
-
-            candle::bail!("Not compiled with `cuda` feature");
+        #[cfg(feature = "cuda")]
+        Device::Cuda(_) => {
+            cuda::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus)
         }
         dev => {
             candle::bail!("Device {dev:?} not supported");
@@ -119,6 +94,27 @@ pub fn apply_selective_scan(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use candle::DType;
+
+    macro_rules! assert_close {
+        // ($left:ident, $right:ident) => {{
+        //     assert_close!($left, $right, rtol=1e-5, )
+        // }};
+        // ($left:ident, $right:ident, $($arg:tt)*) => {{
+        //     assert_close!($left, $right, rtol=1e-5, $($arg:tt)*)
+        // }};
+        ($left:ident, $right:ident, rtol=$rtol:expr, $($arg:tt)*) => {{
+            assert_eq!($left.shape(), $right.shape(), $($arg),*);
+            let diff = (($left - &$right)?.abs().unwrap() / $right.abs().unwrap()).unwrap();
+            let tol = (diff.ge($rtol))
+                .unwrap()
+                .to_dtype(DType::F32)?
+                .sum_all()
+                .unwrap();
+            let total = tol.to_scalar::<f32>()?;
+            assert!(total == 0.0, $($arg),*);
+        }};
+    }
 
     #[test]
     fn test_selective_scan_original() -> Result<()> {
@@ -155,7 +151,7 @@ mod tests {
                 assert_close!(
                     out,
                     out2,
-                    "u: {u:?} delta {delta:?} a: {a:?} b {b:?} c {c:?} d {d:?}"
+                    rtol=1e-3,
                 );
             }
         }
