@@ -84,7 +84,7 @@ pub fn apply_selective_scan(
         Device::Cuda(_) => {
             cuda::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus)
         }
-        dev => cpu::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus),
+        _ => cpu::apply_selective_scan(u, delta, a, b, c, d, z, delta_bias, delta_softplus),
     }
 }
 
