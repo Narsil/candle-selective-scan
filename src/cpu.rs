@@ -181,12 +181,12 @@ pub fn apply_causal_conv1d(
     let dtype_in = x.dtype();
     let x = x.to_dtype(weight.dtype())?;
     let seqlen = x.dim(2)?;
-    let (_, _dim, width) = weight.dims3()?;
+    let (dim, width) = weight.dims2()?;
     let padding = width - 1;
     let stride = 1;
     let dilation = 1;
-    let groups = 1;
-    let mut out = x.conv1d(weight, padding, stride, dilation, groups)?;
+    let groups = dim;
+    let mut out = x.conv1d(&weight.unsqueeze(1)?, padding, stride, dilation, groups)?;
     if let Some(bias) = bias {
         out = (out + bias)?;
     }

@@ -234,15 +234,15 @@ mod tests {
         let seqlen = 8;
         let width = 2;
         let silu_activation = false;
-        let dtype = DType::F32;
-        let channel_last = false;
+        let _dtype = DType::F32;
+        let _channel_last = false;
         let batch = 2;
 
         let total = batch * dim * seqlen;
         let x = Tensor::arange(0f32, total as f32, &device)?.reshape((batch, dim, seqlen))?;
 
         let total = dim * width;
-        let weight = Tensor::arange(0f32, total as f32, &device)?.reshape((1, dim, width))?;
+        let weight = Tensor::arange(0f32, total as f32, &device)?.reshape((dim, width))?;
         let out = apply_causal_conv1d(&x, &weight, None, None, silu_activation)?;
 
         assert_eq!(out.dims(), [batch, dim, seqlen]);
