@@ -181,7 +181,7 @@ pub fn apply_causal_conv1d(
     let dtype_in = x.dtype();
     let x = x.to_dtype(weight.dtype())?;
     let seqlen = x.dim(2)?;
-    let (_dim, width) = weight.dims2()?;
+    let (_, _dim, width) = weight.dims3()?;
     let padding = width - 1;
     let stride = 1;
     let dilation = 1;

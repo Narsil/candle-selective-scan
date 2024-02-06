@@ -221,4 +221,48 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test]
+    fn test_causal_conv1d_small() -> Result<()> {
+        #[cfg(feature = "cuda")]
+        let device = Device::new_cuda(0)?;
+
+        #[cfg(not(feature = "cuda"))]
+        let device = Device::Cpu;
+
+        let dim = 3;
+        let seqlen = 8;
+        let width = 2;
+        let silu_activation = false;
+        let dtype = DType::F32;
+        let channel_last = false;
+        let batch = 2;
+
+        let total = batch * dim * seqlen;
+        let x = Tensor::arange(0f32, total as f32, &device)?.reshape((batch, dim, seqlen))?;
+
+        let total = dim * width;
+        let weight = Tensor::arange(0f32, total as f32, &device)?.reshape((1, dim, width))?;
+        let out = apply_causal_conv1d(&x, &weight, None, None, silu_activation)?;
+
+        assert_eq!(out.dims(), [batch, dim, seqlen]);
+
+        assert_eq!(
+            out.to_vec3::<f32>()?,
+            [
+                [
+                    [0., 1., 2., 3., 4., 5., 6., 7.],
+                    [24., 43., 48., 53., 58., 63., 68., 73.],
+                    [80., 149., 158., 167., 176., 185., 194., 203.]
+                ],
+                [
+                    [24., 25., 26., 27., 28., 29., 30., 31.],
+                    [96., 163., 168., 173., 178., 183., 188., 193.],
+                    [200., 365., 374., 383., 392., 401., 410., 419.]
+                ]
+            ]
+        );
+
+        Ok(())
+    }
 }
