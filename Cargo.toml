@@ -13,7 +13,7 @@ candle = { version = "0.3.3", package="candle-core" }
 half = "2.3.1"
 
 [build-dependencies]
-bindgen_cuda = { version = "0.1.2", optional = true }
+bindgen_cuda = { version = "0.1.4", optional = true }
 
 [dev-dependencies]
 memmap2 = "0.9.4"

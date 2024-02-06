@@ -91,7 +91,7 @@ extern "C" {
         params: &ConvParamsBase,
         input_dtype: u32,
         weight_dtype: u32,
-        is_channel_last: bool,
+        channel_last: bool,
         stream: *const c_void,
     );
 }

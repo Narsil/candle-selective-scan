@@ -30,11 +30,11 @@ fn build_cuda() {
         .arg("--use_fast_math")
         .arg("--verbose");
 
-    let out_file = out_dir.join("libselectivescan.a");
+    let out_file = out_dir.join("libmamba.a");
     builder.build_lib(out_file);
 
     println!("cargo:rustc-link-search={}", out_dir.display());
-    println!("cargo:rustc-link-lib=selectivescan");
+    println!("cargo:rustc-link-lib=mamba");
     println!("cargo:rustc-link-lib=dylib=stdc++");
     println!("cargo:rustc-link-lib=dylib=cudart");
 }
