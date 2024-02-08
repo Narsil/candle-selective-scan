@@ -87,7 +87,22 @@ extern "C" {
         stream: *const c_void,
     );
 
+    pub(crate) fn selective_scan_fwd_update_cuda_ffi(
+        params: &SSMParamsBase,
+        input_dtype: u32,
+        weight_dtype: u32,
+        stream: *const c_void,
+    );
+
     pub(crate) fn causal_conv1d_ffi(
+        params: &ConvParamsBase,
+        input_dtype: u32,
+        weight_dtype: u32,
+        channel_last: bool,
+        stream: *const c_void,
+    );
+
+    pub(crate) fn causal_conv1d_update_ffi(
         params: &ConvParamsBase,
         input_dtype: u32,
         weight_dtype: u32,

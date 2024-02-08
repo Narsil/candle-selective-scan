@@ -2,9 +2,14 @@
  * Copyright (c) 2023, Tri Dao.
  ******************************************************************************/
 
-#include <c10/util/BFloat16.h>
-#include <c10/util/Half.h>
-#include <c10/cuda/CUDAException.h>  // For C10_CUDA_CHECK and C10_CUDA_KERNEL_LAUNCH_CHECK
+// #include <c10/util/BFloat16.h>
+// #include <c10/util/Half.h>
+// #include <c10/cuda/CUDAException.h>  // For C10_CUDA_CHECK and C10_CUDA_KERNEL_LAUNCH_CHECK
+namespace at{
+    using BFloat16 = __nv_bfloat16;
+    using Half = __half;
+
+}
 
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_store.cuh>
@@ -71,7 +76,7 @@ void causal_conv1d_update_launch(ConvParamsBase &params, cudaStream_t stream) {
     dim3 grid(params.batch, (params.dim + kNThreads - 1) / kNThreads);
     auto kernel = &causal_conv1d_update_kernel<Ktraits>;
     kernel<<<grid, Ktraits::kNThreads, 0, stream>>>(params);
-    C10_CUDA_KERNEL_LAUNCH_CHECK();
+    // C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
 
 template<typename input_t, typename weight_t>

@@ -49,6 +49,7 @@ fn dtype_as_u32(dtype: DType) -> Result<u32> {
     }
 }
 
+
 pub fn apply_selective_scan(
     u: &Tensor,
     delta: &Tensor,
@@ -349,7 +350,13 @@ fn apply_causal_conv1d_(
         dev => candle::bail!("Invalid device {dev:?}"),
     };
     let stream = *device.cu_stream() as *const c_void;
-    ffi::causal_conv1d_ffi(&params, input_dtype, weight_dtype, is_channel_last, stream);
+
+    if conv_state.is_some(){
+        ffi::causal_conv1d_update_ffi(&params, input_dtype, weight_dtype, is_channel_last, stream);
+    }else{
+        ffi::causal_conv1d_ffi(&params, input_dtype, weight_dtype, is_channel_last, stream);
+    }
+
   }
     Ok(out)
 }
