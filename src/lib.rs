@@ -8,6 +8,18 @@ mod utils;
 
 use utils::{check_same_device, SameDevice};
 
+/// Computes selective_scan.
+/// u : (batch, dim, seqlen)
+/// delta : (batch, dim, seqlen)
+/// A : (dim, dstate)
+/// B : (dim, dstate)
+/// C : (dim, dstate)
+/// D : (dim, )
+/// z : (batch, dim, seqlen)
+/// delta_bias : (dim, )
+///
+/// out : (batch, dim, seqlen)
+/// last_state : (batch, dim, dstate)
 pub fn apply_selective_scan(
     u: &Tensor,
     delta: &Tensor,
@@ -63,6 +75,12 @@ pub fn apply_selective_scan_update(
     }
 }
 
+/// Computes causal_conv1d and update `conv_state` tensor.
+/// x : (batch, dim, seqlen)
+/// weight : (dim, width)
+/// seq_idx : (batch, seqlen)
+/// bias : (dim, )
+/// out : (batch, dim, seqlen)
 pub fn apply_causal_conv1d(
     x: &Tensor,
     weight: &Tensor,
@@ -79,22 +97,27 @@ pub fn apply_causal_conv1d(
     }
 }
 
+/// Computes causal_conv1d and update `conv_state` tensor.
+/// x : (batch, dim)
+/// conv_state : (batch, dim, width)
+/// weight : (dim, width)
+/// bias : (dim, )
+/// out : (batch, dim)
 pub fn apply_causal_conv1d_update(
     x: &Tensor,
     conv_state: &mut Tensor,
     weight: &Tensor,
     bias: Option<&Tensor>,
-    seq_idx: Option<&Tensor>,
     activation: bool,
-) -> Result<Tensor> {
-    check_same_device!(x, conv_state, weight, bias, seq_idx);
+) -> Result<(Tensor, Tensor)> {
+    check_same_device!(x, conv_state, weight, bias);
 
     match x.device() {
         #[cfg(feature = "cuda")]
         Device::Cuda(_) => {
-            cuda::apply_causal_conv1d_update(x, conv_state, weight, bias, seq_idx, activation)
+            cuda::apply_causal_conv1d_update(x, conv_state, weight, bias, activation)
         }
-        _ => cpu::apply_causal_conv1d_update(x, conv_state, weight, bias, seq_idx, activation),
+        _ => cpu::apply_causal_conv1d_update(x, conv_state, weight, bias, activation),
     }
 }
 
@@ -116,15 +139,7 @@ mod tests {
             assert_eq!(total, 0.0, $($arg),*);
         }};
     }
-
-    #[test]
-    fn test_selective_scan_original() -> Result<()> {
-        #[cfg(feature = "cuda")]
-        let device = Device::new_cuda(0)?;
-
-        #[cfg(not(feature = "cuda"))]
-        let device = Device::Cpu;
-
+    fn test_selective_scan_original(device: &Device) -> Result<()> {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
         for filename in std::fs::read_dir(dir).unwrap() {
             let path = filename?.path();
@@ -155,15 +170,14 @@ mod tests {
         }
         Ok(())
     }
+    candle::test_device!(
+        test_selective_scan_original,
+        test_selective_scan_original_cpu,
+        test_selective_scan_original_cuda,
+        test_selective_scan_original_metal
+    );
 
-    #[test]
-    fn test_causal_conv1d_small() -> Result<()> {
-        #[cfg(feature = "cuda")]
-        let device = Device::new_cuda(0)?;
-
-        #[cfg(not(feature = "cuda"))]
-        let device = Device::Cpu;
-
+    fn test_causal_conv1d_small(device: &Device) -> Result<()> {
         let dim = 3;
         let seqlen = 8;
         let width = 2;
@@ -199,4 +213,49 @@ mod tests {
 
         Ok(())
     }
+    candle::test_device!(
+        test_causal_conv1d_small,
+        test_causal_conv1d_small_cpu,
+        test_causal_conv1d_small_cuda,
+        test_causal_conv1d_small_metal
+    );
+
+    fn test_causal_conv1d_update_small(device: &Device) -> Result<()> {
+        let dim = 3;
+        let width = 2;
+        let silu_activation = false;
+        let _dtype = DType::F32;
+        let _channel_last = false;
+        let batch = 2;
+
+        let total = batch * dim;
+        let x = Tensor::arange(0f32, total as f32, &device)?.reshape((batch, dim))?;
+
+        let total = batch * dim * width;
+        let mut conv_state =
+            Tensor::arange(0f32, total as f32, &device)?.reshape((batch, dim, width))?;
+
+        let total = dim * width;
+        let weight = Tensor::arange(0f32, total as f32, &device)?.reshape((dim, width))?;
+        let (out, new_state) =
+            apply_causal_conv1d_update(&x, &mut conv_state, &weight, None, silu_activation)?;
+
+        assert_eq!(out.dims(), [batch, dim]);
+        assert_eq!(out.to_vec2::<f32>()?, [[0., 9., 30.], [3., 30., 69.]]);
+        assert_eq!(
+            new_state.to_vec3::<f32>()?,
+            [
+                [[1., 0.], [3., 1.], [5., 2.]],
+                [[7., 3.], [9., 4.], [11., 5.]]
+            ]
+        );
+
+        Ok(())
+    }
+    candle::test_device!(
+        test_causal_conv1d_update_small,
+        test_causal_conv1d_update_small_cpu,
+        test_causal_conv1d_update_small_cuda,
+        test_causal_conv1d_update_small_metal
+    );
 }

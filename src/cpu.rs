@@ -198,19 +198,25 @@ pub fn apply_causal_conv1d(
     Ok(out)
 }
 
-pub fn apply_causal_conv1d_update(
+/// Computes causal_conv1d and update `conv_state` tensor.
+/// x : (batch, dim)
+/// conv_state : (batch, dim, width)
+/// weight : (dim, width)
+/// bias : (dim, )
+/// out : (batch, dim)
+pub(crate) fn apply_causal_conv1d_update(
     x: &Tensor,
     conv_state: &mut Tensor,
     weight: &Tensor,
     bias: Option<&Tensor>,
-    _seq_idx: Option<&Tensor>,
     activation: bool,
-) -> Result<Tensor> {
+) -> Result<(Tensor, Tensor)> {
     let dtype_in = x.dtype();
     let x = x.to_dtype(weight.dtype())?;
+    let x = x.unsqueeze(2)?;
 
     let new_state = Tensor::cat(&[conv_state.i((.., .., 1..))?, x], D::Minus1)?;
-    let mut out = (new_state * weight)?.sum(D::Minus1)?;
+    let mut out = (new_state.broadcast_mul(&weight.unsqueeze(0)?))?.sum(D::Minus1)?;
     if let Some(bias) = bias {
         out = (out + bias)?;
     }
@@ -218,7 +224,7 @@ pub fn apply_causal_conv1d_update(
         out = silu(&out)?;
     }
     let out = out.to_dtype(dtype_in)?;
-    Ok(out)
+    Ok((out, new_state))
 }
 
 fn silu(x: &Tensor) -> Result<Tensor> {
